@@ -1,3 +1,4 @@
+import { STUDENTS_RAW_DATA } from '@/data/students-data';
 export type Student = {
   usn: string
   fullName: string
