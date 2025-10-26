@@ -14,7 +14,7 @@ Any changes you make to your deployed app will be automatically pushed to this r
 
 Your project is live at:
 
-**[https://vercel.com/starkxxs-projects/v0-vtu-results-portal-design](https://vercel.com/starkxxs-projects/v0-vtu-results-portal-design)**
+**[https://vtu-results-portal.vercel.app/](https://vtu-results-portal.vercel.app/)**
 
 ## Build your app
 
