@@ -2,6 +2,9 @@
 
 A modern, fast, and user-friendly web application for viewing VTU (Visvesvaraya Technological University) student results. Built with Next.js 15, TypeScript, and Tailwind CSS.
 
+# The website is live at :
+[https://vtu-results-portal.vercel.app/](https://vtu-results-portal.vercel.app/)
+
 ## ✨ Features
 
 - **🔍 Smart Search**: Search by USN or student name with intelligent matching
