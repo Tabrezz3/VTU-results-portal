@@ -23,7 +23,7 @@ A modern, fast, and user-friendly web application for viewing VTU (Visvesvaraya 
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Tabrezz3/VTU-results-portal.git
    cd vtu-results-portal
    ```
 
