@@ -76,7 +76,7 @@ The application contains **608 student records** across **10 sections** (A-J) wi
 - **ME** - Mechanical Engineering
 - **CV** - Civil Engineering
 
-## 🔧 API Endpoints
+## 🔧 API Endpoints (for example)
 
 ### Student Validation
 ```http
@@ -102,30 +102,9 @@ GET /api/validate?fullName=PAVITHRA R
 }
 ```
 
-### CSV Export
-```http
-GET /api/csv
-```
-Downloads complete student data as CSV file.
 
 ## 🎯 Usage Examples
 
-### Search by USN
-```
-3VC24CS096
-```
-
-### Search by Name
-```
-PAVITHRA R
-Pavithra
-```
-
-### Partial Name Search
-```
-Pavi
-Pavithra
-```
 
 ## 🛠️ Technical Details
 
