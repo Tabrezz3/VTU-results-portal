@@ -1,3 +1,22 @@
+export type RawStudentData = {
+  usn: string;
+  name: string;
+  total_marks: string; // Keep as string for now, parse later
+  percentage: string;
+  sgpa: string;
+  section: string;
+  pdf_drive_link: string;
+  class_rank: string;
+  college_rank: string;
+  subject1: string;
+  subject2: string;
+  subject3: string;
+  subject4: string;
+  subject5: string;
+  subject6: string;
+  subject7: string;
+  subject8: string;
+};
 export const STUDENTS_RAW_DATA: RawStudentData[] = [
 {
   usn: "3VC24CS096",
