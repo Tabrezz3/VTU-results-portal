@@ -154,13 +154,13 @@ function parseSubjectString(subjectStr: string): Subject | null {
     trimmed = firstPart
   }
 
-  const regex = /^([A-Z0-9]+):(\d+)\s*\(([PF])\)$/
+  const regex = /^([A-Z0-9]+):(\d+)\s*\(([PFA])\)$/
   const match = trimmed.match(regex)
 
   if (match) {
-    const code = match[10]
-    const marksStr = match[11]
-    const statusChar = match[12]
+    const code = match[1]
+    const marksStr = match[2]
+    const statusChar = match[3]
 
     const marks = parseInt(marksStr, 10)
     if (isNaN(marks)) {
@@ -180,31 +180,6 @@ function parseSubjectString(subjectStr: string): Subject | null {
   }
 
   return null
-}
-
-function parseCSVLine(line: string): string[] {
-  const values: string[] = []
-  let current = ""
-  let inQuotes = false
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === "," && !inQuotes) {
-      values.push(current)
-      current = ""
-    } else {
-      current += char
-    }
-  }
-  values.push(current)
-  return values
 }
 
 function parseStudentFromRecord(record: any): Student {
@@ -235,41 +210,12 @@ function parseStudentFromRecord(record: any): Student {
   }
 }
 
-// ✅ FIXED: Single unified function using Google Drive CSV
+// ✅ FIXED: Single unified function using local data
 export async function findStudentByUSNOrName(usn?: string, fullName?: string): Promise<Student | null> {
   try {
-    // Use Google Drive CSV instead of Vercel Blob
-    const CSV_URL = process.env.CSV_DATA_URL || 'https://drive.google.com/uc?export=download&id=1cSZ_S2jbviCcg72FBtIyRrIVJCmKpIQZ';
+    console.log('Searching for student in local data...');
     
-    console.log('Fetching CSV from Google Drive...');
-    
-    const response = await fetch(CSV_URL, {
-      cache: 'no-store',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; VTU-Results-Portal/1.0)',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch CSV: ${response.status} ${response.statusText}`);
-    }
-    
-    const csvText = await response.text();
-    console.log('CSV fetched successfully, size:', csvText.length);
-    
-    // Parse CSV using existing logic
-    const lines = csvText.trim().split('\n');
-    const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/"/g, ''));
-    
-    console.log('CSV Headers:', headers);
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i]);
-      const record: any = {};
-      headers.forEach((header, index) => {
-        record[header] = values[index] || "";
-      });
-
+    for (const record of STUDENTS_RAW_DATA) {
       if (!record.usn || !record.name) continue;
 
       const studentUSN = record.usn.trim();
@@ -301,12 +247,12 @@ export async function findStudentByUSNOrName(usn?: string, fullName?: string): P
     return null;
     
   } catch (error) {
-    console.error('Error fetching CSV from Google Drive:', error);
+    console.error('Error searching local student data:', error);
     throw error;
   }
 }
 
-// Keep your existing search functions but update them to use the same Google Drive source
+// Keep your existing search functions but update them to use the local data source
 export async function searchStudents(query: string, limit: number = 10): Promise<{
   exactMatch: Student | null
   results: SearchResult[]
@@ -319,31 +265,13 @@ export async function searchStudents(query: string, limit: number = 10): Promise
   console.log("🔍 Enhanced search for:", query)
 
   try {
-    // Use same Google Drive CSV source
-    const csvUrl = process.env.CSV_DATA_URL || 'https://drive.google.com/uc?export=download&id=1cSZ_S2jbviCcg72FBtIyRrIVJCmKpIQZ';
-    
-    const response = await fetch(csvUrl)
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const csvText = await response.text()
-    
-    const lines = csvText.trim().split("\n")
-    const headers = parseCSVLine(lines[0]).map((h) => h.trim().replace(/"/g, ""))
-    
     const normalizedQuery = query.trim()
 
     let exactMatch: Student | null = null
     const results: SearchResult[] = []
     const suggestions: SearchSuggestion[] = []
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i])
-      const record: any = {}
-      headers.forEach((header, index) => {
-        record[header] = values[index] || ""
-      })
+    for (const record of STUDENTS_RAW_DATA) {
 
       if (!record.usn || !record.name) continue
 
@@ -432,64 +360,12 @@ export async function getSearchSuggestions(query: string, limit: number = 5): Pr
 
 export async function loadStudentsData(): Promise<Student[]> {
   try {
-    console.log("🔄 Loading students data...")
-    // Use same Google Drive CSV source
-    const csvUrl = process.env.CSV_DATA_URL || 'https://drive.google.com/uc?export=download&id=1cSZ_S2jbviCcg72FBtIyRrIVJCmKpIQZ';
-
-    const response = await fetch(csvUrl)
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const csvText = await response.text()
-
-    const lines = csvText.trim().split("\n")
-    const headers = parseCSVLine(lines[0]).map((h) => h.trim().replace(/"/g, ""))
-    const students: Student[] = []
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i])
-      const record: any = {}
-      headers.forEach((header, index) => {
-        record[header] = values[index] || ""
-      })
-
-      if (record.usn && record.name) {
-        const student = parseStudentFromRecord(record)
-        students.push(student)
-      }
-    }
-
+    console.log("🔄 Loading students data from local source...")
+    const students: Student[] = STUDENTS_RAW_DATA.map(parseStudentFromRecord).filter(s => s.usn && s.fullName);
     console.log(`✅ Total students loaded: ${students.length}`)
     return students
   } catch (error) {
     console.error("❌ Error in loadStudentsData:", error)
-    return []
-  }
-}
-
-export function loadStudentsFromText(csvText: string): Student[] {
-  try {
-    const lines = csvText.trim().split("\n")
-    const headers = parseCSVLine(lines[0]).map((h) => h.trim().replace(/"/g, ""))
-    const students: Student[] = []
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i])
-      const record: any = {}
-      headers.forEach((header, index) => {
-        record[header] = values[index] || ""
-      })
-
-      if (record.usn && record.name) {
-        const student = parseStudentFromRecord(record)
-        students.push(student)
-      }
-    }
-
-    return students
-  } catch (error) {
-    console.error("❌ Error in loadStudentsFromText:", error)
     return []
   }
 }
