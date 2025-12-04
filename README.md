@@ -44,18 +44,22 @@ A modern, fast, and user-friendly web application for viewing VTU (Visvesvaraya 
 
 ```
 vtu-results-portal/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   │   ├── csv/          # CSV export endpoint
-│   │   └── validate/     # Student validation endpoint
-│   ├── portal/           # Main search interface
-│   ├── result/           # Result display pages
-│   └── layout.tsx        # Root layout
-├── data/                  # Student data
-│   ├── students.ts       # Data processing & search logic
-│   └── students-data.ts  # Raw student data (608 records)
-├── components/           # Reusable UI components
-└── lib/                  # Utility functions
+├── src/                    # Source code
+│   ├── app/               # Next.js App Router
+│   │   ├── api/          # API routes
+│   │   ├── portal/       # Main search interface
+│   │   ├── result/       # Result display pages
+│   │   └── layout.tsx    # Root layout
+│   ├── components/        # Reusable UI components
+│   │   └── ui/           # Shadcn/ui components
+│   ├── data/             # Student data
+│   │   ├── students.ts   # Data processing & search logic
+│   │   └── students-data.ts # Raw student data (608 records)
+│   ├── lib/              # Utility functions
+│   └── hooks/            # Custom React hooks
+├── public/               # Static assets
+├── docs/                 # Documentation
+└── Configuration files
 ```
 
 ## 📊 Data Overview
