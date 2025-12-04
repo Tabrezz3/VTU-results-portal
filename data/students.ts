@@ -1,0 +1,402 @@
+import { STUDENTS_RAW_DATA, type RawStudentData } from './students-data';
+
+export type Student = {
+  usn: string
+  fullName: string
+  totalMarks: number
+  percentage: number
+  sgpa: number
+  subjects: Subject[]
+  section?: string
+  classRank?: number
+  collegeRank?: number
+  pdfLink?: string
+}
+
+export type Subject = {
+  code: string
+  subject: string
+  marks: number
+  grade: string
+  status: "Pass" | "Fail"
+}
+
+export type SearchResult = {
+  student: Student
+  matchType: "exact_usn" | "exact_name" | "partial_name"
+  similarity: number
+}
+
+export type SearchSuggestion = {
+  usn: string
+  name: string
+  similarity: number
+  matchType: "partial_name" | "fuzzy_name"
+}
+
+const SUBJECT_NAMES: Record<string, string> = {
+  BMATS201: "MATHEMATICS-II FOR CSE STREAM",
+  BMATS101: "MATHEMATICS-I",
+  BMATE201: "MATHEMATICS-II FOR EES",
+  BMATM201: "MATHEMATICS-II FOR MECHANICAL ENGG STREAM",
+  BMATC201: "MATHEMATICS-II FOR CIVIL ENGG STREAM",
+  BCHES202: "APPLIED CHEMISTRY FOR CSE STREAM",
+  BPHYS202: "APPLIED PHYSICS FOR CSE STREAM",
+  BPHYE202: "APPLIED PHYSICS FOR EES",
+  BPHYM202: "APPLIED PHYSICS FOR ME STREAMS",
+  BPHYC202: "APPLIED PHYSICS FOR CIVIL ENGG STREAM",
+  IBPHYS102: "APPLIED PHYSICS",
+  BCEDK203: "COMPUTER-AIDED ENGINEERING DRAWING",
+  BBEE203: "BASIC ELECTRONICS",
+  BEEE203: "ELEMENT OF ELECTRICAL ENGINEERING",
+  BEMEM203: "ELEMENTS OF MECHANICAL ENGINEERING",
+  BCIVC203: "ENGINEERING MECHANICS",
+  BPOPS203: "PRINCIPLES OF PROGRAMMING USING C",
+  BPOPS103: "PRINCIPLES OF PROGRAMMING USING C",
+  BPWSK206: "PROFESSIONAL WRITING SKILLS IN ENGLISH",
+  BICOK207: "INDIAN CONSTITUTION",
+  BICOK107: "INDIAN CONSTITUTION",
+  BKSKK207: "SAMSKRUTIKA KANNADA",
+  BKBKK207: "BALAKE KANNADA",
+  BENGK106: "COMMUNICATIVE ENGLISH",
+  BIDTK258: "INNOVATION AND DESIGN THINKING",
+  BSFHK258: "SCIENTIFIC FOUNDATIONS OF HEALTH",
+  BESCK204B: "INTRODUCTION TO ELECTRICAL ENGINEERING",
+  BESCK204C: "INTRODUCTION TO ELECTRONICS COMMUNICATION",
+  BESCK104B: "INTRODUCTION TO ELECTRICAL ENGINEERING",
+  BPLCK205A: "INTRODUCTION TO WEB PROGRAMMING",
+  BPLCK205B: "INTRODUCTION TO PYTHON PROGRAMMING",
+  BPLCK205D: "INTRODUCTION TO C++ PROGRAMMING",
+}
+
+// Cache the processed students data
+let processedStudents: Student[] | null = null;
+
+function calculateGrade(marks: number): string {
+  if (marks >= 90) return "S"
+  if (marks >= 80) return "A"
+  if (marks >= 70) return "B"
+  if (marks >= 60) return "C"
+  if (marks >= 50) return "D"
+  if (marks >= 40) return "E"
+  return "F"
+}
+
+function parseSubjectString(subjectStr: string): Subject | null {
+  if (!subjectStr || subjectStr.trim() === "") return null
+
+  let trimmed = subjectStr.trim()
+
+  if (trimmed.includes(',')) {
+    const firstPart = trimmed.split(',')[0].trim()
+    trimmed = firstPart
+  }
+
+  const regex = /^([A-Z0-9]+):(\d+)\s*\(([PFA])\)$/
+  const match = trimmed.match(regex)
+
+  if (match) {
+    const code = match[1]
+    const marksStr = match[2]
+    const statusChar = match[3]
+
+    const marks = parseInt(marksStr, 10)
+    if (isNaN(marks)) {
+      return null
+    }
+
+    const status: "Pass" | "Fail" = (statusChar === "P" || statusChar === "A") ? "Pass" : "Fail"
+    const grade = calculateGrade(marks)
+
+    return {
+      code,
+      subject: SUBJECT_NAMES[code] || code,
+      marks,
+      grade,
+      status,
+    }
+  }
+
+  return null
+}
+
+function parseStudentFromRecord(record: RawStudentData): Student {
+  const subjects: Subject[] = []
+  for (let j = 1; j <= 8; j++) {
+    const subjectKey = `subject${j}` as keyof RawStudentData
+    const subjectValue = record[subjectKey]
+
+    if (subjectValue && subjectValue.trim() !== "") {
+      const parsedSubject = parseSubjectString(subjectValue)
+      if (parsedSubject) {
+        subjects.push(parsedSubject)
+      }
+    }
+  }
+
+  return {
+    usn: record.usn || "",
+    fullName: record.name || "",
+    totalMarks: Number.parseInt(record.total_marks, 10) || 0,
+    percentage: Number.parseFloat(record.percentage) || 0,
+    sgpa: Number.parseFloat(record.sgpa) || 0,
+    subjects: subjects,
+    section: record.section || undefined,
+    pdfLink: record.pdf_drive_link || undefined,
+    classRank: record.class_rank ? Number.parseInt(record.class_rank, 10) : undefined,
+    collegeRank: record.college_rank ? Number.parseInt(record.college_rank, 10) : undefined,
+  }
+}
+
+function getProcessedStudents(): Student[] {
+  if (!processedStudents) {
+    console.log("🔄 Processing student data from imported constants...");
+    processedStudents = STUDENTS_RAW_DATA.map(record => parseStudentFromRecord(record));
+    console.log(`✅ Processed ${processedStudents.length} students`);
+  }
+  return processedStudents;
+}
+
+function calculateSimpleSimilarity(str1: string, str2: string): number {
+  const s1 = str1.toLowerCase().trim()
+  const s2 = str2.toLowerCase().trim()
+  
+  if (s1 === s2) return 1.0
+  
+  const longer = s1.length > s2.length ? s1 : s2
+  const shorter = s1.length <= s2.length ? s1 : s2
+  
+  if (longer.length === 0) return 1.0
+  
+  let commonChars = 0
+  for (let i = 0; i < shorter.length; i++) {
+    if (longer.includes(shorter[i])) {
+      commonChars++
+    }
+  }
+  
+  return commonChars / longer.length
+}
+
+function containsPartialMatch(fullName: string, searchTerm: string): boolean {
+  const nameWords = fullName.toLowerCase().split(/\s+/)
+  const searchWords = searchTerm.toLowerCase().split(/\s+/)
+  
+  return searchWords.every(searchWord => 
+    nameWords.some(nameWord => 
+      nameWord.includes(searchWord) || 
+      searchWord.includes(nameWord) ||
+      nameWord.startsWith(searchWord) ||
+      searchWord.startsWith(nameWord)
+    )
+  )
+}
+
+function calculatePartialSimilarity(fullName: string, searchTerm: string): number {
+  const nameWords = fullName.toLowerCase().split(/\s+/)
+  const searchWords = searchTerm.toLowerCase().split(/\s+/)
+  
+  let totalSimilarity = 0
+  let matches = 0
+  
+  for (const searchWord of searchWords) {
+    let bestMatch = 0
+    for (const nameWord of nameWords) {
+      const similarity = calculateSimpleSimilarity(searchWord, nameWord)
+      bestMatch = Math.max(bestMatch, similarity)
+      
+      if (nameWord.includes(searchWord) || searchWord.includes(nameWord)) {
+        bestMatch = Math.max(bestMatch, 0.7)
+      }
+      
+      if (nameWord.startsWith(searchWord) || searchWord.startsWith(nameWord)) {
+        bestMatch = Math.max(bestMatch, 0.8)
+      }
+    }
+    totalSimilarity += bestMatch
+    matches++
+  }
+  
+  return matches > 0 ? totalSimilarity / matches : 0
+}
+
+
+
+export async function searchStudents(query: string, limit: number = 10): Promise<{
+  exactMatch: Student | null
+  results: SearchResult[]
+  suggestions: SearchSuggestion[]
+}> {
+  if (!query || query.trim() === "") {
+    return { exactMatch: null, results: [], suggestions: [] }
+  }
+
+  console.log("🔍 Enhanced search for:", query)
+
+  try {
+    const students = getProcessedStudents();
+    const normalizedQuery = query.trim();
+
+    let exactMatch: Student | null = null
+    const results: SearchResult[] = []
+    const suggestions: SearchSuggestion[] = []
+
+    for (const student of students) {
+      // Check for exact USN match
+      if (normalizeUSN(student.usn) === normalizeUSN(normalizedQuery)) {
+        exactMatch = student
+        console.log("✅ Exact USN match found:", student.fullName)
+        continue
+      }
+
+      // Check for exact name match
+      if (normalizeName(student.fullName) === normalizeName(normalizedQuery)) {
+        if (!exactMatch) {
+          exactMatch = student
+          console.log("✅ Exact name match found:", student.fullName)
+        }
+        continue
+      }
+
+      // Partial name matching
+      const partialMatch = containsPartialMatch(student.fullName, normalizedQuery)
+      const similarity = calculatePartialSimilarity(student.fullName, normalizedQuery)
+
+      if (partialMatch && similarity > 0.2) {
+        results.push({
+          student,
+          matchType: "partial_name",
+          similarity
+        })
+      } else if (similarity > 0.4) {
+        suggestions.push({
+          usn: student.usn,
+          name: student.fullName,
+          similarity,
+          matchType: "fuzzy_name"
+        })
+      }
+    }
+
+    results.sort((a, b) => b.similarity - a.similarity)
+    suggestions.sort((a, b) => b.similarity - a.similarity)
+
+    console.log(`✅ Search completed: ${results.length} results, ${suggestions.length} suggestions`)
+
+    return {
+      exactMatch,
+      results: results.slice(0, limit),
+      suggestions: suggestions.slice(0, limit)
+    }
+
+  } catch (error) {
+    console.error("❌ Error in searchStudents:", error)
+    return { exactMatch: null, results: [], suggestions: [] }
+  }
+}
+
+export async function getSearchSuggestions(query: string, limit: number = 5): Promise<SearchSuggestion[]> {
+  if (!query || query.trim().length < 2) {
+    return []
+  }
+
+  const searchResult = await searchStudents(query, limit)
+  const allSuggestions: SearchSuggestion[] = []
+
+  searchResult.results.forEach(result => {
+    allSuggestions.push({
+      usn: result.student.usn,
+      name: result.student.fullName,
+      similarity: result.similarity,
+      matchType: "partial_name"
+    })
+  })
+
+  allSuggestions.push(...searchResult.suggestions)
+
+  return allSuggestions
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit)
+}
+
+export async function findStudentByUSNOrName(usn?: string | null, fullName?: string | null): Promise<Student | null> {
+  const query = usn || fullName || ""
+  
+  if (!query) return null
+
+  console.log("🔍 Finding student with enhanced search:", { usn, fullName })
+
+  const searchResult = await searchStudents(query, 1)
+  
+  if (searchResult.exactMatch) {
+    return searchResult.exactMatch
+  }
+  
+  if (searchResult.results.length > 0) {
+    return searchResult.results[0].student
+  }
+  
+  return null
+}
+
+export async function loadStudentsData(): Promise<Student[]> {
+  console.log("🔄 Loading students from imported data...")
+  const students = getProcessedStudents();
+  console.log(`✅ Total students loaded: ${students.length}`)
+  return students;
+}
+
+export function normalizeUSN(input: string): string {
+  return input.trim().toUpperCase()
+}
+
+export function normalizeName(input: string): string {
+  return input.trim().toLowerCase().replace(/\s+/g, " ")
+}
+
+export async function getAllStudents(): Promise<Student[]> {
+  return await loadStudentsData()
+}
+
+export function getStudentsBySection(students: Student[], section: string): Student[] {
+  return students.filter(student => student.section === section)
+}
+
+export function getTopPerformers(students: Student[], count: number = 10): Student[] {
+  return students
+    .sort((a, b) => b.sgpa - a.sgpa)
+    .slice(0, count)
+}
+
+export function getStudentsByGrade(students: Student[], minSGPA: number): Student[] {
+  return students.filter(student => student.sgpa >= minSGPA)
+}
+
+export function getSubjectStatistics(students: Student[], subjectCode: string) {
+  const subjectMarks = students
+    .flatMap(student => student.subjects)
+    .filter(subject => subject.code === subjectCode)
+    .map(subject => subject.marks)
+
+  if (subjectMarks.length === 0) {
+    return null
+  }
+
+  const total = subjectMarks.reduce((sum, marks) => sum + marks, 0)
+  const average = total / subjectMarks.length
+  const highest = Math.max(...subjectMarks)
+  const lowest = Math.min(...subjectMarks)
+  const passCount = subjectMarks.filter(marks => marks >= 40).length
+  const passPercentage = (passCount / subjectMarks.length) * 100
+
+  return {
+    subjectCode,
+    subjectName: SUBJECT_NAMES[subjectCode] || subjectCode,
+    totalStudents: subjectMarks.length,
+    average: Math.round(average * 100) / 100,
+    highest,
+    lowest,
+    passCount,
+    passPercentage: Math.round(passPercentage * 100) / 100
+  }
+}
